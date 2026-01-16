@@ -6,7 +6,7 @@
 # next.js
 /.next/
 /out/
-
+backend/firebase-service-account.json
 # production
 /build
 
@@ -18,10 +18,11 @@ yarn-error.log*
 
 # env files
 .env*
+.env.local
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
+next-env.d.ts"backend/firebase-service-account.json" 
