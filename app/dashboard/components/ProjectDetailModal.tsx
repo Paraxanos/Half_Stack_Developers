@@ -146,35 +146,8 @@ export default function ProjectDetailModal({
 
           {/* Header Section */}
           <div className="p-6 pb-0">
-            {/* Match Score - Circular design */}
+            {/* Title & Owner */}
             <div className="flex items-start gap-5">
-              {/* Score Circle */}
-              <div className="relative flex-shrink-0">
-                <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="text-white/10"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  <path
-                    className="text-[#B19EEF]"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    fill="none"
-                    strokeDasharray={`${project.compatibilityScore}, 100`}
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-xl font-bold text-white">{project.compatibilityScore}</span>
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider">Match</span>
-                </div>
-              </div>
-
-              {/* Title & Owner */}
               <div className="flex-1 min-w-0 pt-1">
                 <div className="flex items-center gap-2 mb-1">
                   {project.stage && (
