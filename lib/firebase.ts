@@ -1,11 +1,5 @@
-<<<<<<< HEAD
-// lib/firebase.ts
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-=======
 // src/lib/firebase.ts
 import { initializeApp } from 'firebase/app';
->>>>>>> Pranjal
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -16,13 +10,5 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-<<<<<<< HEAD
-// Initialize Firebase only if not already initialized
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const auth = getAuth(app);
-
-export { app, auth };
-=======
 const app = initializeApp(firebaseConfig);
 export { app };
->>>>>>> Pranjal
