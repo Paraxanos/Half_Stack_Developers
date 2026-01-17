@@ -2,7 +2,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiSearch, FiFilter, FiMapPin, FiCode, FiStar, FiUserPlus } from 'react-icons/fi';
+import { useRouter } from 'next/navigation';
+import { FiSearch, FiFilter, FiMapPin, FiCode, FiStar, FiUser } from 'react-icons/fi';
 import { db } from '@/lib/firebase-client';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
@@ -33,6 +34,7 @@ const skillKeywordMap: Record<string, string[]> = {
 };
 
 export default function SearchPeople() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSkillFilters, setActiveSkillFilters] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -243,9 +245,12 @@ export default function SearchPeople() {
               )}
             </div>
 
-            <button className="mt-4 w-full py-2.5 rounded-xl bg-[#B19EEF]/10 border border-[#B19EEF]/20 text-[#B19EEF] text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#B19EEF]/20 transition-all duration-200">
-              <FiUserPlus size={16} />
-              Connect
+            <button
+              onClick={() => router.push(`/dashboard/profile/${person.id}`)}
+              className="mt-4 w-full py-2.5 rounded-xl bg-[#B19EEF]/10 border border-[#B19EEF]/20 text-[#B19EEF] text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#B19EEF]/20 transition-all duration-200"
+            >
+              <FiUser size={16} />
+              View Profile
             </button>
           </div>
         ))}

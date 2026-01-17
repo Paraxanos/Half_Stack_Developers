@@ -309,10 +309,6 @@ export default function MyProfile({ user }: MyProfileProps) {
                 <div className="text-sm text-gray-500">Projects</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-white">{profile.connectionsCount}</div>
-                <div className="text-sm text-gray-500">Connections</div>
-              </div>
-              <div className="text-center">
                 <div className="text-2xl font-bold text-white">{profile.skills.length}</div>
                 <div className="text-sm text-gray-500">Skills</div>
               </div>
