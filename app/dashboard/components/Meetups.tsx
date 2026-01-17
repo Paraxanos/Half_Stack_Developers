@@ -116,7 +116,7 @@ export default function Meetups() {
             time: timeStr,
             person: otherName,
             location: data.campusSpot === 'library' ? 'Library' : 'Central Cafe',
-            projectName: data.projectname || 'Untitled Project',
+            projectName: data.projectName || data.projectname || 'Untitled Project',
             status: data.status || 'pending',
           });
         }
