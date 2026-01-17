@@ -15,6 +15,7 @@ interface Project {
   elevatorPitch: string;
   missingRoles: string[];
   compatibilityScore: number;
+  ownerId: string;
   owner: ProjectOwner;
   tags: string[];
   matchReason: string;
