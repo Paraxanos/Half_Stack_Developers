@@ -211,13 +211,7 @@ export default function SearchPeople() {
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-lg font-semibold text-white truncate">{person.name}</h3>
-                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#B19EEF]/10 text-[#B19EEF] text-xs font-medium">
-                    <FiStar size={12} />
-                    {person.matchScore}%
-                  </div>
-                </div>
+                <h3 className="text-lg font-semibold text-white truncate">{person.name}</h3>
                 <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
                   <FiMapPin size={12} />
                   {person.department} · {person.year}

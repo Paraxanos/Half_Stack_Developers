@@ -177,10 +177,6 @@ export default function ProjectDetailModal({
               {/* Title & Owner */}
               <div className="flex-1 min-w-0 pt-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#B19EEF]/10 border border-[#B19EEF]/20 px-2 py-0.5 text-xs font-medium text-[#B19EEF]">
-                    <FiZap size={10} />
-                    {getScoreLabel(project.compatibilityScore)} Match
-                  </span>
                   {project.stage && (
                     <span className="rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-xs text-gray-400">
                       {project.stage}
@@ -237,17 +233,6 @@ export default function ProjectDetailModal({
 
           {/* Content */}
           <div className="space-y-5 px-6 pb-6">
-            {/* Match Analysis Card */}
-            <div className="rounded-xl border border-[#B19EEF]/20 bg-gradient-to-br from-[#B19EEF]/5 to-transparent overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#B19EEF]/10">
-                <FiZap className="text-[#B19EEF]" size={14} />
-                <h3 className="text-sm font-semibold text-[#B19EEF]">Why You Match</h3>
-              </div>
-              <p className="px-4 py-3 text-sm leading-relaxed text-gray-300">
-                {project.matchReason}
-              </p>
-            </div>
-
             {/* The Idea */}
             <div>
               <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">

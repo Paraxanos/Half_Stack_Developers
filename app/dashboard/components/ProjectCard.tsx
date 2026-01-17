@@ -71,50 +71,14 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
       className="group relative w-full h-full flex flex-col overflow-hidden rounded-2xl border border-white/5 bg-[#12121a] text-left transition-all duration-300 hover:border-[#B19EEF]/30 hover:bg-[#15151f] font-['Inter',sans-serif]"
     >
       <div className="p-5 flex flex-col h-full">
-        {/* Top row: Stage badge & Score */}
-        <div className="flex items-center justify-between mb-4">
-          {project.stage && (
+        {/* Top row: Stage badge */}
+        {project.stage && (
+          <div className="flex items-center justify-between mb-4">
             <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStageColor(project.stage)}`}>
               {project.stage}
             </span>
-          )}
-          
-          {/* Circular Match Score */}
-          <div className="relative">
-            <svg className="w-14 h-14 -rotate-90" viewBox="0 0 36 36">
-              <path
-                className="text-white/5"
-                d="M18 2.0845
-                  a 15.9155 15.9155 0 0 1 0 31.831
-                  a 15.9155 15.9155 0 0 1 0 -31.831"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-              />
-              <path
-                className={`bg-gradient-to-r ${getScoreColor(project.compatibilityScore)}`}
-                d="M18 2.0845
-                  a 15.9155 15.9155 0 0 1 0 31.831
-                  a 15.9155 15.9155 0 0 1 0 -31.831"
-                fill="none"
-                stroke="url(#scoreGradient)"
-                strokeWidth="3"
-                strokeDasharray={`${project.compatibilityScore}, 100`}
-                strokeLinecap="round"
-              />
-              <defs>
-                <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#B19EEF" />
-                  <stop offset="100%" stopColor="#8B7BD4" />
-                </linearGradient>
-              </defs>
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-sm font-bold text-white">{project.compatibilityScore}</span>
-              <span className="text-[8px] text-gray-500 uppercase tracking-wide">match</span>
-            </div>
           </div>
-        </div>
+        )}
 
         {/* Project Title with arrow */}
         <div className="flex items-start justify-between gap-2 mb-2">
