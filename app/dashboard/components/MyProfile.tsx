@@ -9,6 +9,7 @@ import {
 import { getAuth } from 'firebase/auth';
 import { db } from '@/lib/firebase-client';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import EditProjectModal from './EditProjectModal';
 
 interface UserProject {
   id: string;
@@ -20,6 +21,7 @@ interface UserProject {
   roleGaps: string[];
   currentMembers: number;
   totalMembers: number;
+  timeline: string;
 }
 
 interface UserProfile {
@@ -60,6 +62,8 @@ export default function MyProfile({ user }: MyProfileProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [myProjects, setMyProjects] = useState<UserProject[]>([]);
+  const [editingProject, setEditingProject] = useState<UserProject | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Fetch or create profile and fetch user's projects
   useEffect(() => {
@@ -130,6 +134,7 @@ export default function MyProfile({ user }: MyProfileProps) {
             roleGaps: projectData.roleGaps || [],
             currentMembers: projectData.currentnumberofmembers || 1,
             totalMembers: projectData.totalnumberofmembers || 1,
+            timeline: projectData.timeline ? new Date(projectData.timeline.toDate()).toISOString().split('T')[0] : '',
           });
         });
         setMyProjects(projects);
@@ -607,12 +612,51 @@ export default function MyProfile({ user }: MyProfileProps) {
                       )}
                     </div>
                   </div>
+                  
+                  {/* Edit Button */}
+                  <button
+                    onClick={() => {
+                      setEditingProject(project);
+                      setIsEditModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-gray-400 transition-all hover:border-[#B19EEF]/30 hover:text-[#B19EEF] hover:bg-[#B19EEF]/5"
+                  >
+                    <FiEdit2 size={14} />
+                    Edit
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Edit Project Modal */}
+      <EditProjectModal
+        project={editingProject}
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingProject(null);
+        }}
+        onSave={(updatedProject) => {
+          // Update the project in local state
+          setMyProjects((prev) =>
+            prev.map((p) =>
+              p.id === updatedProject.id
+                ? {
+                    ...p,
+                    currentMembers: updatedProject.currentMembers,
+                    totalMembers: updatedProject.totalMembers,
+                    timeline: updatedProject.timeline,
+                    stage: updatedProject.stage,
+                    roleGaps: updatedProject.roleGaps,
+                  }
+                : p
+            )
+          );
+        }}
+      />
     </div>
   );
 }
