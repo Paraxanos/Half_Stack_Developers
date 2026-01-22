@@ -14,6 +14,7 @@ app.use(cors({
     'http://localhost:3001',
     'https://ghost-collab.vercel.app',
     'https://ghost-collab.tech',
+    'https://www.ghost-collab.tech',
     /\.vercel\.app$/,  // Allow all Vercel preview deployments
   ],
   credentials: true,
