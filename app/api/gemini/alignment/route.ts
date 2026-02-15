@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       console.log('User profile not found for UID:', uid); // Debug log
       // Let's also check what user documents exist (for debugging)
       // Skip this check when using mock data to avoid the limit function issue
-      if (typeof process.env.NODE_ENV !== 'production' && 
+      if (typeof process.env.NODE_ENV !== 'production' &&
           (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY)) {
         console.log('Skipping user ID listing since using mock data'); // Debug log
       } else {
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         const userIds = allUsers.docs.map(doc => doc.id);
         console.log('Available user IDs in DB:', userIds); // Debug log
       }
-      
+
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
     const userProfile = userDoc.data() || {};
@@ -93,8 +93,11 @@ ANALYSIS RULES:
 5. Respond with exactly 2 sentences - no more, no less
 6. End with forward-looking encouragement
 7. Output PLAIN TEXT ONLY - no markdown, asterisks, or labels
+8. RESPONSE MUST BE EXACTLY 2 SENTENCES AND NO MORE - enforce this strictly
+9. Each sentence should be concise and informative, focusing on the most relevant match points
+10. Total response should fit within 1000 tokens
 
-RESPONSE:
+RESPONSE (EXACTLY 2 CONCISE SENTENCES):
 `;
 
     // 7. Call Gemini API with timeout protection
