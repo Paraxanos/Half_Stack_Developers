@@ -65,7 +65,26 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 6. Sanitize inputs for prompt (critical security step)
+    // 6. Check for cached alignment result
+    const cacheDocId = `${uid}_${projectId}`;
+    const cacheDoc = await adminDb.collection('alignment_cache').doc(cacheDocId).get();
+    
+    // Check if we have a cached result and if the user profile has changed since caching
+    if (cacheDoc.exists) {
+      const cacheData = cacheDoc.data();
+      const cachedAt = cacheData?.cachedAt?.toDate ? cacheData.cachedAt.toDate() : new Date(0);
+      const userUpdatedAt = userProfile.updatedAt?.toDate ? userProfile.updatedAt.toDate() : new Date(0);
+      
+      // If user profile was updated after the cache was created, invalidate the cache
+      if (userUpdatedAt <= cachedAt) {
+        console.log('Returning cached alignment result');
+        return NextResponse.json({ alignment: cacheData.alignment });
+      } else {
+        console.log('User profile updated since cache, invalidating cache');
+      }
+    }
+
+    // 7. Sanitize inputs for prompt (critical security step)
     const sanitize = (str: string, maxLength = 200) =>
       str?.replace(/[<>]/g, '').trim().slice(0, maxLength) || 'Not specified';
 
@@ -100,7 +119,7 @@ ANALYSIS RULES:
 RESPONSE (EXACTLY 2 CONCISE SENTENCES):
 `;
 
-    // 7. Call Gemini API with timeout protection
+    // 8. Call Gemini API with timeout protection
     if (!process.env.GEMINI_API_KEY) {
       console.error('GEMINI_API_KEY not configured');
       return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
@@ -136,6 +155,21 @@ RESPONSE (EXACTLY 2 CONCISE SENTENCES):
           .replace(/\n+/g, ' ')
           .trim()
           .slice(0, 300); // Hard cap at 300 chars
+
+        // Cache the result
+        await adminDb.collection('alignment_cache').doc(cacheDocId).set({
+          alignment: alignmentText || "Great potential match! Review the project details to see where your skills align.",
+          cachedAt: new Date(),
+          userId: uid,
+          projectId: projectId,
+          userProfileSnapshot: {
+            skills: userProfile.skills,
+            workStyle: userProfile.workStyle,
+            intensity: userProfile.intensity,
+            department: userProfile.department,
+            updatedAt: userProfile.updatedAt
+          }
+        });
 
         return NextResponse.json({ alignment: alignmentText || "Great potential match! Review the project details to see where your skills align." });
       } catch (error) {
