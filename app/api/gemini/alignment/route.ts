@@ -123,8 +123,10 @@ RULES:
 
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      
+      // Use gemini-2.5-flash - latest advanced model
       const model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash-exp',  // Fast model optimized for short responses
+        model: 'gemini-2.5-flash',  // Latest advanced flash model
         generationConfig: {
           maxOutputTokens: 300,  // Reduced - we only need ~250 chars
           temperature: 0.2,      // Lower for more focused output
