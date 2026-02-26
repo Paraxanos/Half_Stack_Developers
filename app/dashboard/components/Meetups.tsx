@@ -17,13 +17,18 @@ interface Meetup {
   isIncomingRequest?: boolean;
   proposerUid?: string;
   recipientUid?: string;
+  proposerEmail?: string;
+  recipientEmail?: string;
 }
 
 interface MeetupCardProps {
   meetup: Meetup;
+  onAccept?: (meetupId: string) => Promise<void>;
+  onDecline?: (meetupId: string) => Promise<void>;
+  showActions?: boolean;
 }
 
-const MeetupCard = ({ meetup }: MeetupCardProps) => {
+const MeetupCard = ({ meetup, onAccept, onDecline, showActions }: MeetupCardProps) => {
   const isPending = meetup.status === 'pending';
   const avatarBg = isPending ? 'bg-[#B19EEF]/20 text-[#B19EEF]' : 'bg-emerald-500/15 text-emerald-300';
 
@@ -58,6 +63,22 @@ const MeetupCard = ({ meetup }: MeetupCardProps) => {
             <FiMapPin size={11} />
             <span className="truncate">{meetup.location}</span>
           </div>
+          {showActions && onAccept && onDecline && (
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => onAccept(meetup.id)}
+                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-medium hover:bg-emerald-500/30 transition-colors"
+              >
+                <FiCheck size={12} /> Accept
+              </button>
+              <button
+                onClick={() => onDecline(meetup.id)}
+                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/30 transition-colors"
+              >
+                <FiX size={12} /> Decline
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -152,10 +173,38 @@ export default function Meetups() {
   // Handle accepting/declining requests
   const handleRequestAction = async (meetupId: string, action: 'accepted' | 'declined') => {
     try {
-      await updateDoc(doc(db, 'meetups', meetupId), { status: action });
+      // Update status in Firestore
+      await updateDoc(doc(db, 'meetups', meetupId), { 
+        status: action,
+        acceptedAt: new Date(),
+      });
+      
+      // If accepted, send confirmation emails
+      if (action === 'accepted') {
+        try {
+          const auth = getAuth();
+          const token = await auth.currentUser?.getIdToken();
+          
+          await fetch('/api/meetups/send-email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              meetupId,
+              type: 'confirmation',
+            }),
+          });
+        } catch (emailError) {
+          console.error('Failed to send confirmation email:', emailError);
+          // Don't fail the acceptance if email fails
+        }
+      }
+      
       // Update local state
-      setMeetups(prev => prev.map(m => 
-        m.id === meetupId 
+      setMeetups(prev => prev.map(m =>
+        m.id === meetupId
           ? { ...m, status: action, isIncomingRequest: false }
           : m
       ));
@@ -213,46 +262,13 @@ export default function Meetups() {
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2">
             {incomingRequests.map(request => (
-              <div key={request.id} className="group flex-shrink-0 w-[280px] rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 transition-all hover:border-amber-500/40">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-semibold text-sm">
-                    {request.person.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-white font-medium truncate">{request.person}</p>
-                    <p className="text-xs text-amber-400 truncate">{request.projectName}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <FiCalendar size={11} className="text-gray-500" />
-                        {request.date}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <FiClock size={11} className="text-gray-500" />
-                        {request.time}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-                      <FiMapPin size={11} />
-                      <span className="truncate">{request.location}</span>
-                    </div>
-                    {/* Accept/Decline buttons */}
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        onClick={() => handleRequestAction(request.id, 'accepted')}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-medium hover:bg-emerald-500/30 transition-colors"
-                      >
-                        <FiCheck size={12} /> Accept
-                      </button>
-                      <button
-                        onClick={() => handleRequestAction(request.id, 'declined')}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/30 transition-colors"
-                      >
-                        <FiX size={12} /> Decline
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <MeetupCard
+                key={request.id}
+                meetup={request}
+                showActions
+                onAccept={(id) => handleRequestAction(id, 'accepted')}
+                onDecline={(id) => handleRequestAction(id, 'declined')}
+              />
             ))}
           </div>
         </div>
