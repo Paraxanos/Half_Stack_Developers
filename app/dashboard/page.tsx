@@ -70,6 +70,15 @@ export default function DashboardPage() {
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Handle tab query parameter from URL (e.g., after scheduling a meetup)
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['explore', 'meetups', 'search', 'profile'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, []);
+
   // Fetch projects from Firestore on mount
   useEffect(() => {
     const fetchProjects = async () => {

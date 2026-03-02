@@ -65,42 +65,57 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 6. Sanitize inputs for prompt (critical security step)
-    const sanitize = (str: string, maxLength = 200) =>
+    // 6. Check for cached alignment result
+    const cacheDocId = `${uid}_${projectId}`;
+    const cacheDoc = await adminDb.collection('alignment_cache').doc(cacheDocId).get();
+    
+    // Check if we have a cached result and if the user profile has changed since caching
+    if (cacheDoc.exists) {
+      const cacheData = cacheDoc.data();
+      const cachedAt = cacheData?.cachedAt?.toDate ? cacheData.cachedAt.toDate() : new Date(0);
+      const userUpdatedAt = userProfile.updatedAt?.toDate ? userProfile.updatedAt.toDate() : new Date(0);
+      
+      // If user profile was updated after the cache was created, invalidate the cache
+      if (userUpdatedAt <= cachedAt) {
+        console.log('Returning cached alignment result');
+        return NextResponse.json({ alignment: cacheData.alignment });
+      } else {
+        console.log('User profile updated since cache, invalidating cache');
+      }
+    }
+
+    // 7. Sanitize inputs for prompt (critical security step)
+    const sanitize = (str: string, maxLength = 150) =>
       str?.replace(/[<>]/g, '').trim().slice(0, maxLength) || 'Not specified';
 
     const prompt = `
-You are an expert technical matchmaker for developer projects. Analyze compatibility between a developer's profile and a project opportunity. Be concise, actionable, and encouraging.
+You are an expert technical matchmaker for developer projects. Analyze compatibility between a developer's profile and a project opportunity.
 
 USER PROFILE:
-- Core Skills: ${sanitize(userProfile.skills?.join(', ') || '')}
+- Skills: ${sanitize(userProfile.skills?.join(', ') || '')}
 - Work Style: ${sanitize(userProfile.workStyle || '')}
-- Work Intensity: ${sanitize(userProfile.intensity || '')}
-- Academic Background: ${sanitize(userProfile.department || '')}
+- Intensity: ${sanitize(userProfile.intensity || '')}
+- Background: ${sanitize(userProfile.department || '')}
 
-PROJECT REQUIREMENTS:
+PROJECT:
 - Title: ${sanitize(projectData.title || '')}
-- Required Tech Stack: ${sanitize(projectData.Techstack?.join(', ') || '')}
+- Tech Stack: ${sanitize(projectData.Techstack?.join(', ') || '')}
 - Needed Roles: ${sanitize(projectData.roleGaps?.join(', ') || '')}
-- Project Stage: ${sanitize(projectData.currentprojectstage || '')}
-- Timeline: ${sanitize(projectData.timeline ? new Date(projectData.timeline).toLocaleDateString() : '')}
+- Stage: ${sanitize(projectData.currentprojectstage || '')}
 
-ANALYSIS RULES:
-1. Highlight 1-2 SPECIFIC matches (e.g., "Your TypeScript experience directly matches their frontend needs")
-2. Address gaps constructively (e.g., "While Python isn't listed in your skills, your JavaScript background provides strong transferable concepts for their Flask API")
-3. NEVER mention names, emails, or other PII
-4. NEVER make up skills not in the profile
-5. Respond with exactly 2 sentences - no more, no less
-6. End with forward-looking encouragement
-7. Output PLAIN TEXT ONLY - no markdown, asterisks, or labels
-8. RESPONSE MUST BE EXACTLY 2 SENTENCES AND NO MORE - enforce this strictly
-9. Each sentence should be concise and informative, focusing on the most relevant match points
-10. Total response should fit within 1000 tokens
+TASK: Write exactly 2 concise sentences (max 250 characters total):
+1. First sentence: Highlight the strongest skill/role match
+2. Second sentence: Constructively address any gap OR add encouragement
 
-RESPONSE (EXACTLY 2 CONCISE SENTENCES):
+RULES:
+- Be specific about matches (e.g., "Your React skills match their frontend needs")
+- Never mention names or emails
+- Never invent skills not in the profile
+- Plain text only - no markdown, quotes, or labels
+- Keep it under 250 characters total
 `;
 
-    // 7. Call Gemini API with timeout protection
+    // 8. Call Gemini API with timeout protection
     if (!process.env.GEMINI_API_KEY) {
       console.error('GEMINI_API_KEY not configured');
       return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
@@ -108,18 +123,20 @@ RESPONSE (EXACTLY 2 CONCISE SENTENCES):
 
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      
+      // Use gemini-2.5-flash - latest advanced model
       const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',  // Changed to 'gemini-2.5-flash' as requested
+        model: 'gemini-2.5-flash',  // Latest advanced flash model
         generationConfig: {
-          maxOutputTokens: 1000,  // Increased to 1000 for more detailed response
-          temperature: 0.3,
-          topP: 0.8,
+          maxOutputTokens: 300,  // Reduced - we only need ~250 chars
+          temperature: 0.2,      // Lower for more focused output
+          topP: 0.9,
         },
       });
 
-      // Add timeout protection (10 seconds)
+      // Add timeout protection (8 seconds)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
       try {
         const result = await model.generateContent(prompt, {
@@ -130,12 +147,44 @@ RESPONSE (EXACTLY 2 CONCISE SENTENCES):
         const response = await result.response;
         let alignmentText = response.text().trim();
 
-        // Final sanitization
+        // Smart truncation - respect sentence boundaries
         alignmentText = alignmentText
-          .replace(/[*_~`]/g, '')
-          .replace(/\n+/g, ' ')
-          .trim()
-          .slice(0, 300); // Hard cap at 300 chars
+          .replace(/[*_~`"]/g, '')  // Remove markdown
+          .replace(/\n+/g, ' ')      // Remove newlines
+          .replace(/\s+/g, ' ')      // Normalize spaces
+          .trim();
+
+        // If over 280 chars, truncate at last sentence boundary (period)
+        if (alignmentText.length > 280) {
+          const truncated = alignmentText.slice(0, 280);
+          const lastPeriod = truncated.lastIndexOf('.');
+          if (lastPeriod > 100) {  // Only if we found a reasonable sentence
+            alignmentText = truncated.slice(0, lastPeriod + 1).trim();
+          } else {
+            // Fallback: just truncate with ellipsis
+            alignmentText = truncated.trim() + '...';
+          }
+        }
+
+        // Ensure minimum useful length
+        if (alignmentText.length < 50) {
+          alignmentText = "Great potential match! Review the project details to see where your skills align.";
+        }
+
+        // Cache the result
+        await adminDb.collection('alignment_cache').doc(cacheDocId).set({
+          alignment: alignmentText || "Great potential match! Review the project details to see where your skills align.",
+          cachedAt: new Date(),
+          userId: uid,
+          projectId: projectId,
+          userProfileSnapshot: {
+            skills: userProfile.skills,
+            workStyle: userProfile.workStyle,
+            intensity: userProfile.intensity,
+            department: userProfile.department,
+            updatedAt: userProfile.updatedAt
+          }
+        });
 
         return NextResponse.json({ alignment: alignmentText || "Great potential match! Review the project details to see where your skills align." });
       } catch (error) {

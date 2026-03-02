@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { FiUsers, FiCalendar, FiZap, FiClock, FiTarget, FiLayers, FiLoader } from 'react-icons/fi';
 import { getAuth } from 'firebase/auth';
-import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase-client';
 
 interface ProjectOwner {
@@ -41,8 +42,7 @@ export default function ProjectDetailModal({
   isOpen,
   onClose,
 }: ProjectDetailModalProps) {
-  const [isRequestingMeetup, setIsRequestingMeetup] = useState(false);
-  const [meetupError, setMeetupError] = useState<string | null>(null);
+  const router = useRouter();
   const [alignment, setAlignment] = useState<string | null>(null);
   const [alignmentLoading, setAlignmentLoading] = useState(false);
   const [alignmentError, setAlignmentError] = useState<string | null>(null);
@@ -134,38 +134,10 @@ export default function ProjectDetailModal({
       .slice(0, 2);
   };
 
-  const handleRequestMeetup = async () => {
-    setIsRequestingMeetup(true);
-    setMeetupError(null);
-
-    try {
-      const auth = getAuth();
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('Not authenticated');
-
-      const userSnap = await getDoc(doc(db, 'users', currentUser.uid));
-      const proposerName = userSnap.exists() ? (userSnap.data() as any).name : 'User';
-
-      await addDoc(collection(db, 'meetups'), {
-        projectId: project.id,
-        projectName: project.title,
-        proposerUid: currentUser.uid,
-        proposerName,
-        recipientUid: project.ownerId,
-        recipientName: project.owner.name,
-        campusSpot: 'library',
-        proposedTime: serverTimestamp(),
-        status: 'pending',
-        createdAt: serverTimestamp(),
-      });
-
-      onClose();
-    } catch (err) {
-      console.error('Failed to request meetup:', err);
-      setMeetupError('Failed to send request. Please try again.');
-    } finally {
-      setIsRequestingMeetup(false);
-    }
+  const handleRequestMeetup = () => {
+    // Navigate to the schedule meetup page
+    router.push(`/dashboard/meetups/schedule/${project.id}`);
+    onClose();
   };
 
   return (
@@ -340,16 +312,12 @@ export default function ProjectDetailModal({
             <div className="flex gap-3">
               <button
                 onClick={handleRequestMeetup}
-                disabled={isRequestingMeetup}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#B19EEF] to-[#9580D1] px-5 py-3 text-sm font-semibold text-[#0a0a0f] transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#B19EEF] to-[#9580D1] px-5 py-3 text-sm font-semibold text-[#0a0a0f] transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
               >
                 <FiCalendar size={16} />
-                {isRequestingMeetup ? 'Sending...' : 'Request Meetup'}
+                Request Meetup
               </button>
             </div>
-            {meetupError && (
-              <p className="mt-2 text-center text-xs text-red-400">{meetupError}</p>
-            )}
           </div>
         </div>
       </div>
