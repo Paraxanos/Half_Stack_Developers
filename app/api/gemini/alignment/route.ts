@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     const uid = decodedToken.uid;
 
     // 2. Parse request body
-    const { projectId } = await request.json();
+    const { projectId, cacheOnly = false } = await request.json();
     if (!projectId || typeof projectId !== 'string') {
       return NextResponse.json({ error: 'Invalid project ID' }, { status: 400 });
     }
@@ -107,6 +107,10 @@ export async function POST(request: NextRequest) {
       }
 
       console.log('Cache invalidated due to profile/project change');
+    }
+
+    if (cacheOnly) {
+      return NextResponse.json({ alignment: null });
     }
 
     // 8. Sanitize inputs for prompt (critical security step)

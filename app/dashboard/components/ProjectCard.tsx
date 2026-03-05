@@ -52,6 +52,7 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
     hasAttempted: false
   });
   const [isHovered, setIsHovered] = useState(false);
+  const [isCheckingCache, setIsCheckingCache] = useState(false);
 
   // Track auth state using Firebase Auth
   useEffect(() => {
@@ -65,14 +66,53 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
   // Reset analysis when project changes
   useEffect(() => {
     setAlignment({ text: '', isLoading: false, error: null, hasAttempted: false });
+    setIsCheckingCache(false);
   }, [project.id]);
+
+  // Hydrate previously cached fit from backend so reload doesn't require another click.
+  useEffect(() => {
+    const loadCachedAlignment = async () => {
+      if (!currentUser || currentUser.uid === project.ownerId || alignment.text) return;
+
+      setIsCheckingCache(true);
+      try {
+        const idToken = await currentUser.getIdToken();
+        const response = await fetch('/api/gemini/alignment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ projectId: project.id, cacheOnly: true }),
+        });
+
+        if (!response.ok) return;
+        const data = await response.json();
+        if (typeof data?.alignment === 'string' && data.alignment.trim()) {
+          setAlignment({
+            text: data.alignment,
+            isLoading: false,
+            error: null,
+            hasAttempted: true,
+          });
+        }
+      } catch {
+        // Ignore cache hydration failures and keep manual button available.
+      } finally {
+        setIsCheckingCache(false);
+      }
+    };
+
+    void loadCachedAlignment();
+  }, [alignment.text, currentUser, project.id, project.ownerId]);
 
   // Determine if we should show alignment features
   const shouldShowAlignment = 
     currentUser && 
     currentUser.uid !== project.ownerId &&
     !alignment.text &&
-    !alignment.isLoading;
+    !alignment.isLoading &&
+    !isCheckingCache;
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return 'from-emerald-500 to-teal-500';
