@@ -1,13 +1,12 @@
 // src/components/dashboard/ProjectCard.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type KeyboardEvent } from 'react';
 import { 
   FiUsers, FiZap, FiClock, FiTarget, FiArrowUpRight,
   FiLoader, FiAlertCircle, FiRefreshCw
 } from 'react-icons/fi';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { db } from '@/lib/firebase-client';
 
 interface ProjectOwner {
   name: string;
@@ -159,9 +158,19 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
     }
   };
 
+  const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onClick();
+    }
+  };
+
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={handleCardKeyDown}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className="group relative w-full h-full flex flex-col overflow-hidden rounded-2xl border border-white/5 bg-[#12121a] text-left transition-all duration-300 hover:border-[#B19EEF]/30 hover:bg-[#15151f] font-['Inter',sans-serif]"
@@ -340,6 +349,6 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
