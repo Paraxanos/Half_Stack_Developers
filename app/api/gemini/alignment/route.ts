@@ -85,34 +85,18 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. Sanitize inputs for prompt (critical security step)
-    const sanitize = (str: string, maxLength = 150) =>
+    const sanitize = (str: string, maxLength = 80) =>
       str?.replace(/[<>]/g, '').trim().slice(0, maxLength) || 'Not specified';
 
     const prompt = `
-You are an expert technical matchmaker for developer projects. Analyze compatibility between a developer's profile and a project opportunity.
+Technical matchmaker. Return EXACTLY ONE short sentence (under 80 characters) explaining the match.
 
-USER PROFILE:
-- Skills: ${sanitize(userProfile.skills?.join(', ') || '')}
-- Work Style: ${sanitize(userProfile.workStyle || '')}
-- Intensity: ${sanitize(userProfile.intensity || '')}
-- Background: ${sanitize(userProfile.department || '')}
+USER: Skills=${sanitize(userProfile.skills?.join(', ') || '')}, Background=${sanitize(userProfile.department || '')}
+PROJECT: TechStack=${sanitize(projectData.Techstack?.join(', ') || '')}, Roles=${sanitize(projectData.roleGaps?.join(', ') || '')}
 
-PROJECT:
-- Title: ${sanitize(projectData.title || '')}
-- Tech Stack: ${sanitize(projectData.Techstack?.join(', ') || '')}
-- Needed Roles: ${sanitize(projectData.roleGaps?.join(', ') || '')}
-- Stage: ${sanitize(projectData.currentprojectstage || '')}
+Write 1 sentence only. Max 80 characters. No period at end.
 
-TASK: Write exactly 2 concise sentences (max 250 characters total):
-1. First sentence: Highlight the strongest skill/role match
-2. Second sentence: Constructively address any gap OR add encouragement
-
-RULES:
-- Be specific about matches (e.g., "Your React skills match their frontend needs")
-- Never mention names or emails
-- Never invent skills not in the profile
-- Plain text only - no markdown, quotes, or labels
-- Keep it under 250 characters total
+Response:
 `;
 
     // 8. Call Gemini API with timeout protection
@@ -124,19 +108,17 @@ RULES:
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       
-      // Use gemini-2.5-flash - latest advanced model
       const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',  // Latest advanced flash model
+        model: 'gemini-2.5-flash',
         generationConfig: {
-          maxOutputTokens: 300,  // Reduced - we only need ~250 chars
-          temperature: 0.2,      // Lower for more focused output
-          topP: 0.9,
+          maxOutputTokens: 20,  // Very limited - forces 1 short sentence
+          temperature: 0.1,
+          topP: 0.5,
         },
       });
 
-      // Add timeout protection (8 seconds)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
       try {
         const result = await model.generateContent(prompt, {
@@ -147,28 +129,24 @@ RULES:
         const response = await result.response;
         let alignmentText = response.text().trim();
 
-        // Smart truncation - respect sentence boundaries
+        // Clean up: remove markdown, quotes, extra spaces
         alignmentText = alignmentText
-          .replace(/[*_~`"]/g, '')  // Remove markdown
-          .replace(/\n+/g, ' ')      // Remove newlines
-          .replace(/\s+/g, ' ')      // Normalize spaces
+          .replace(/[*_~`"']/g, '')
+          .replace(/\n+/g, ' ')
+          .replace(/\s+/g, ' ')
           .trim();
 
-        // If over 280 chars, truncate at last sentence boundary (period)
-        if (alignmentText.length > 280) {
-          const truncated = alignmentText.slice(0, 280);
-          const lastPeriod = truncated.lastIndexOf('.');
-          if (lastPeriod > 100) {  // Only if we found a reasonable sentence
-            alignmentText = truncated.slice(0, lastPeriod + 1).trim();
-          } else {
-            // Fallback: just truncate with ellipsis
-            alignmentText = truncated.trim() + '...';
-          }
+        // Hard truncate at first period or 100 chars (whichever comes first)
+        const firstPeriod = alignmentText.indexOf('.');
+        if (firstPeriod > 0 && firstPeriod < 100) {
+          alignmentText = alignmentText.slice(0, firstPeriod).trim();
+        } else if (alignmentText.length > 100) {
+          alignmentText = alignmentText.slice(0, 100).trim();
         }
 
-        // Ensure minimum useful length
-        if (alignmentText.length < 50) {
-          alignmentText = "Great potential match! Review the project details to see where your skills align.";
+        // Fallback if response is empty or too short
+        if (alignmentText.length < 10) {
+          alignmentText = "Your skills align well with this project's requirements";
         }
 
         // Cache the result
