@@ -112,7 +112,6 @@ export async function POST(request: NextRequest) {
     if (cacheOnly) {
       return NextResponse.json({ alignment: null });
     }
-
     // 8. Sanitize inputs for prompt (critical security step)
     const sanitize = (str: string, maxLength = 150) =>
       str?.replace(/[<>]/g, '').trim().slice(0, maxLength) || 'Not specified';
