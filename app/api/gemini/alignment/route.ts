@@ -108,24 +108,11 @@ export async function POST(request: NextRequest) {
 
       console.log('Cache invalidated due to profile/project change');
     }
-
-<<<<<<< HEAD
-<<<<<<< HEAD
-    // 7. Sanitize inputs for prompt (critical security step)
-    const sanitize = (str: string, maxLength = 80) =>
-=======
-=======
->>>>>>> a86f271fc622e02562adb9fa032b072468b996e1
     if (cacheOnly) {
       return NextResponse.json({ alignment: null });
     }
-
     // 8. Sanitize inputs for prompt (critical security step)
     const sanitize = (str: string, maxLength = 150) =>
-<<<<<<< HEAD
->>>>>>> f66e4cf7481ec263772a39842f293b98b064a55a
-=======
->>>>>>> a86f271fc622e02562adb9fa032b072468b996e1
       str?.replace(/[<>]/g, '').trim().slice(0, maxLength) || 'Not specified';
 
     const prompt = `
