@@ -108,6 +108,7 @@ export async function POST(request: NextRequest) {
 
       console.log('Cache invalidated due to profile/project change');
     }
+
     if (cacheOnly) {
       return NextResponse.json({ alignment: null });
     }
