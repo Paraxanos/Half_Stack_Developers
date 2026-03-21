@@ -2,9 +2,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createHash } from 'crypto';
 
 export const runtime = 'nodejs'; // Changed from 'edge' to 'nodejs' due to firebase-admin compatibility
 export const preferredRegion = 'iad1';
+
+const toStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item).trim())
+    .filter(Boolean);
+};
+
+const makeSignature = (payload: unknown) =>
+  createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +36,7 @@ export async function POST(request: NextRequest) {
     const uid = decodedToken.uid;
 
     // 2. Parse request body
-    const { projectId } = await request.json();
+    const { projectId, cacheOnly = false } = await request.json();
     if (!projectId || typeof projectId !== 'string') {
       return NextResponse.json({ error: 'Invalid project ID' }, { status: 400 });
     }
@@ -65,27 +76,45 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 6. Check for cached alignment result
+    // 6. Build content signatures used to invalidate cache when either side changes
+    const profileSignature = makeSignature({
+      skills: toStringArray(userProfile.skills),
+      workStyle: String(userProfile.workStyle || '').trim(),
+      intensity: String(userProfile.intensity || '').trim(),
+      department: String(userProfile.department || '').trim(),
+    });
+
+    const projectSignature = makeSignature({
+      title: String(projectData.title || '').trim(),
+      Techstack: toStringArray(projectData.Techstack),
+      roleGaps: toStringArray(projectData.roleGaps),
+      currentprojectstage: String(projectData.currentprojectstage || '').trim(),
+    });
+
+    // 7. Check for cached alignment result
     const cacheDocId = `${uid}_${projectId}`;
     const cacheDoc = await adminDb.collection('alignment_cache').doc(cacheDocId).get();
     
-    // Check if we have a cached result and if the user profile has changed since caching
+    // Reuse cache only when both profile and project signatures still match.
     if (cacheDoc.exists) {
       const cacheData = cacheDoc.data();
-      const cachedAt = cacheData?.cachedAt?.toDate ? cacheData.cachedAt.toDate() : new Date(0);
-      const userUpdatedAt = userProfile.updatedAt?.toDate ? userProfile.updatedAt.toDate() : new Date(0);
-      
-      // If user profile was updated after the cache was created, invalidate the cache
-      if (userUpdatedAt <= cachedAt) {
+      const isProfileUnchanged = cacheData?.profileSignature === profileSignature;
+      const isProjectUnchanged = cacheData?.projectSignature === projectSignature;
+
+      if (isProfileUnchanged && isProjectUnchanged && typeof cacheData?.alignment === 'string') {
         console.log('Returning cached alignment result');
         return NextResponse.json({ alignment: cacheData.alignment });
-      } else {
-        console.log('User profile updated since cache, invalidating cache');
       }
+
+      console.log('Cache invalidated due to profile/project change');
     }
 
-    // 7. Sanitize inputs for prompt (critical security step)
-    const sanitize = (str: string, maxLength = 80) =>
+    if (cacheOnly) {
+      return NextResponse.json({ alignment: null });
+    }
+
+    // 8. Sanitize inputs for prompt (critical security step)
+    const sanitize = (str: string, maxLength = 150) =>
       str?.replace(/[<>]/g, '').trim().slice(0, maxLength) || 'Not specified';
 
     const prompt = `
@@ -99,7 +128,7 @@ Write 1 sentence only. Max 80 characters. No period at end.
 Response:
 `;
 
-    // 8. Call Gemini API with timeout protection
+    // 9. Call Gemini API with timeout protection
     if (!process.env.GEMINI_API_KEY) {
       console.error('GEMINI_API_KEY not configured');
       return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
@@ -149,18 +178,28 @@ Response:
           alignmentText = "Your skills align well with this project's requirements";
         }
 
-        // Cache the result
+        // Cache the result with signatures so future requests can skip Gemini if unchanged.
         await adminDb.collection('alignment_cache').doc(cacheDocId).set({
           alignment: alignmentText || "Great potential match! Review the project details to see where your skills align.",
           cachedAt: new Date(),
           userId: uid,
           projectId: projectId,
+          profileSignature,
+          projectSignature,
           userProfileSnapshot: {
             skills: userProfile.skills,
             workStyle: userProfile.workStyle,
             intensity: userProfile.intensity,
             department: userProfile.department,
             updatedAt: userProfile.updatedAt
+          },
+          projectSnapshot: {
+            title: projectData.title,
+            Techstack: projectData.Techstack,
+            roleGaps: projectData.roleGaps,
+            currentprojectstage: projectData.currentprojectstage,
+            updatedAt: projectData.updatedAt,
+            createdAt: projectData.createdAt,
           }
         });
 

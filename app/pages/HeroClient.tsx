@@ -163,7 +163,7 @@ export default function HeroClient() {
     }
   };
 
-  const demoVideoUrl = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'; // 🔁 Replace with real demo
+  const demoVideoUrl = 'https://youtu.be/44fc9tYSw2A'; // 🔁 Replace with real demo
 
   return (
     <div className="max-w-3xl space-y-6 text-center">
