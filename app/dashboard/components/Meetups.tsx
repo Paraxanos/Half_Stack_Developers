@@ -1,18 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiCalendar, FiClock, FiMapPin, FiCheckCircle, FiZap, FiUsers, FiCoffee, FiLoader, FiInbox, FiCheck, FiX } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiMapPin, FiCheckCircle, FiZap, FiUsers, FiCoffee, FiLoader, FiInbox, FiCheck, FiX, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { db } from '@/lib/firebase-client';
-import { collection, query, where, getDocs, or, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, or, orderBy, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { toast } from 'sonner';
 
 interface Meetup {
   id: string;
   date: string;
   time: string;
   person: string;
+  department?: string;
+  skills?: string[];
   location: string;
   projectName: string;
+  message?: string;
   status: 'pending' | 'completed' | 'accepted' | 'declined';
   isIncomingRequest?: boolean;
   proposerUid?: string;
@@ -29,8 +33,7 @@ interface MeetupCardProps {
 }
 
 const MeetupCard = ({ meetup, onAccept, onDecline, showActions }: MeetupCardProps) => {
-  const isPending = meetup.status === 'pending';
-  const avatarBg = isPending ? 'bg-[#B19EEF]/20 text-[#B19EEF]' : 'bg-emerald-500/15 text-emerald-300';
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const getInitials = (name: string) =>
     name
@@ -40,15 +43,37 @@ const MeetupCard = ({ meetup, onAccept, onDecline, showActions }: MeetupCardProp
       .toUpperCase()
       .slice(0, 2);
 
+  // Styling based on status
+  let avatarBg = 'bg-[#B19EEF]/20 text-[#B19EEF]';
+  let cardBorder = 'border-white/10 hover:border-[#B19EEF]/40';
+  let cardBg = 'bg-white/[0.03] hover:bg-white/[0.05]';
+
+  if (meetup.status === 'accepted') {
+    avatarBg = 'bg-emerald-500/15 text-emerald-300';
+    cardBorder = 'border-emerald-500/30 hover:border-emerald-500/50';
+    cardBg = 'bg-emerald-500/5 hover:bg-emerald-500/10';
+  } else if (meetup.status === 'declined') {
+    avatarBg = 'bg-red-500/15 text-red-300';
+    cardBorder = 'border-red-500/30 hover:border-red-500/50';
+    cardBg = 'bg-red-500/5 hover:bg-red-500/10';
+  }
+
   return (
-    <div className="group flex-shrink-0 w-[260px] rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-all hover:border-[#B19EEF]/40 hover:bg-white/[0.05]">
+    <div 
+      className={`group flex-shrink-0 w-[280px] rounded-xl border ${cardBorder} ${cardBg} p-4 transition-all cursor-pointer flex flex-col`}
+      onClick={() => setIsExpanded(!isExpanded)}
+    >
       <div className="flex items-start gap-3">
         <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${avatarBg} font-semibold text-sm`}>
           {getInitials(meetup.person)}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-white font-medium truncate">{meetup.person}</p>
+          <div className="flex justify-between items-start">
+            <p className="text-white font-medium truncate">{meetup.person}</p>
+            {isExpanded ? <FiChevronUp className="text-gray-500" /> : <FiChevronDown className="text-gray-500" />}
+          </div>
           <p className="text-xs text-[#B19EEF] truncate">{meetup.projectName}</p>
+          
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
             <span className="flex items-center gap-1">
               <FiCalendar size={11} className="text-gray-500" />
@@ -63,16 +88,37 @@ const MeetupCard = ({ meetup, onAccept, onDecline, showActions }: MeetupCardProp
             <FiMapPin size={11} />
             <span className="truncate">{meetup.location}</span>
           </div>
-          {showActions && onAccept && onDecline && (
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="mt-4 pt-4 border-t border-white/10 space-y-3" onClick={(e) => e.stopPropagation()}>
+          {meetup.department && (
+            <div className="text-xs text-gray-400">
+              <span className="font-semibold text-gray-300">Department:</span> {meetup.department}
+            </div>
+          )}
+          {meetup.skills && meetup.skills.length > 0 && (
+            <div className="text-xs text-gray-400">
+              <span className="font-semibold text-gray-300">Skills:</span> {meetup.skills.slice(0,3).join(', ')}{meetup.skills.length > 3 ? '...' : ''}
+            </div>
+          )}
+          {meetup.message && (
+            <div className="text-xs text-gray-400 bg-white/5 p-2 rounded-lg italic">
+              "{meetup.message}"
+            </div>
+          )}
+
+          {showActions && onAccept && onDecline && meetup.status === 'pending' && (
             <div className="mt-3 flex gap-2">
               <button
-                onClick={() => onAccept(meetup.id)}
+                onClick={(e) => { e.stopPropagation(); onAccept(meetup.id); }}
                 className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-medium hover:bg-emerald-500/30 transition-colors"
               >
                 <FiCheck size={12} /> Accept
               </button>
               <button
-                onClick={() => onDecline(meetup.id)}
+                onClick={(e) => { e.stopPropagation(); onDecline(meetup.id); }}
                 className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/30 transition-colors"
               >
                 <FiX size={12} /> Decline
@@ -80,7 +126,7 @@ const MeetupCard = ({ meetup, onAccept, onDecline, showActions }: MeetupCardProp
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 };
@@ -112,9 +158,22 @@ export default function Meetups() {
 
         const snapshot = await getDocs(q);
         const meetupList: Meetup[] = [];
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
+
+          // Check if meetup is older than 30 days, clean it up
+          const proposedDateObj = data.proposedTimeTimestamp?.toDate?.() || data.proposedTime?.toDate?.();
+          if (proposedDateObj && proposedDateObj < thirtyDaysAgo) {
+            try {
+              await deleteDoc(doc(db, 'meetups', docSnap.id));
+            } catch (delErr) {
+              console.error('Failed to clean up old meetup:', delErr);
+            }
+            continue; // Skip adding to the list
+          }
 
           // Determine other user's UID
           const otherUid = data.proposerUid === uid 
@@ -126,15 +185,23 @@ export default function Meetups() {
 
           // Fetch real name from users collection
           const userDoc = await getDoc(doc(db, 'users', otherUid));
-          const otherName = userDoc.exists() ? userDoc.data().name || 'Unknown' : 'Unknown';
+          let otherName = 'Unknown';
+          let department = '';
+          let skills: string[] = [];
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            otherName = userData.name || 'Unknown';
+            department = userData.department || '';
+            skills = userData.skills || [];
+          }
 
           // Format date and time from proposedTime
-          const proposedDate = data.proposedTime?.toDate?.();
-          const dateStr = proposedDate 
-            ? proposedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          const dateStr = proposedDateObj 
+            ? proposedDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
             : 'TBD';
-          const timeStr = proposedDate
-            ? proposedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          const timeStr = proposedDateObj
+            ? proposedDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             : 'TBD';
 
           meetupList.push({
@@ -142,8 +209,11 @@ export default function Meetups() {
             date: dateStr,
             time: timeStr,
             person: otherName,
-            location: data.campusSpot === 'library' ? 'Library' : 'Central Cafe',
+            department,
+            skills,
+            location: data.campusSpot === 'library' ? 'Library' : data.campusSpot === 'cafe' ? 'Central Cafe' : data.campusSpot || 'Location TBD',
             projectName: data.projectName || data.projectname || 'Untitled Project',
+            message: data.message,
             status: data.status || 'pending',
             isIncomingRequest,
             proposerUid: data.proposerUid,
@@ -169,6 +239,7 @@ export default function Meetups() {
   const pendingMeetups = meetups.filter(m => m.status === 'pending' && !m.isIncomingRequest);
   const acceptedMeetups = meetups.filter(m => m.status === 'accepted');
   const completedMeetups = meetups.filter(m => m.status === 'completed');
+  const declinedMeetups = meetups.filter(m => m.status === 'declined');
 
   // Handle accepting/declining requests
   const handleRequestAction = async (meetupId: string, action: 'accepted' | 'declined') => {
@@ -202,14 +273,22 @@ export default function Meetups() {
         }
       }
       
-      // Update local state
+      // Update local state and show toast notification
       setMeetups(prev => prev.map(m =>
         m.id === meetupId
           ? { ...m, status: action, isIncomingRequest: false }
           : m
       ));
+
+      if (action === 'accepted') {
+        toast.success('Meetup request accepted!');
+      } else {
+        toast.error('Meetup request declined.');
+      }
+
     } catch (err) {
       console.error('Failed to update request:', err);
+      toast.error('Failed to update request status.');
     }
   };
 
@@ -274,7 +353,7 @@ export default function Meetups() {
         </div>
       )}
 
-      {/* Upcoming */}
+      {/* Upcoming & Accepted */}
       <div>
         <div className="mb-3 flex items-center gap-2 text-white">
           <FiCalendar size={16} className="text-[#B19EEF]" />
@@ -293,6 +372,21 @@ export default function Meetups() {
           )}
         </div>
       </div>
+
+      {/* Declined Meetups (if any) */}
+      {declinedMeetups.length > 0 && (
+        <div>
+          <div className="mb-3 flex items-center gap-2 text-white">
+            <FiX size={16} className="text-red-400" />
+            <h3 className="font-semibold text-red-400">Declined Requests</h3>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2 opacity-80">
+            {declinedMeetups.map(meetup => (
+              <MeetupCard key={meetup.id} meetup={meetup} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Completed */}
       <div>
