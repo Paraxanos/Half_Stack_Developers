@@ -6,6 +6,7 @@ import { FiUsers, FiCalendar, FiZap, FiClock, FiTarget, FiLayers, FiLoader } fro
 import { getAuth } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase-client';
+import ScheduleMeetupModal from './ScheduleMeetupModal';
 
 interface ProjectOwner {
   name: string;
@@ -46,6 +47,7 @@ export default function ProjectDetailModal({
   const [alignment, setAlignment] = useState<string | null>(null);
   const [alignmentLoading, setAlignmentLoading] = useState(false);
   const [alignmentError, setAlignmentError] = useState<string | null>(null);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -135,9 +137,7 @@ export default function ProjectDetailModal({
   };
 
   const handleRequestMeetup = () => {
-    // Navigate to the schedule meetup page
-    router.push(`/dashboard/meetups/schedule/${project.id}`);
-    onClose();
+    setIsScheduleModalOpen(true);
   };
 
   return (
@@ -321,6 +321,16 @@ export default function ProjectDetailModal({
           </div>
         </div>
       </div>
+
+      <ScheduleMeetupModal
+        projectId={project.id}
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        onSuccess={() => {
+          setIsScheduleModalOpen(false);
+          onClose(); // Optional: close the detail modal too, or just let them return to it
+        }}
+      />
     </>
   );
 }

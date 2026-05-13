@@ -77,7 +77,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 6. Build content signatures used to invalidate cache when either side changes
+    const CACHE_VERSION = 'v3'; // Bumped to v3 to bypass recent tests
     const profileSignature = makeSignature({
+      version: CACHE_VERSION,
       skills: toStringArray(userProfile.skills),
       workStyle: String(userProfile.workStyle || '').trim(),
       intensity: String(userProfile.intensity || '').trim(),
@@ -116,16 +118,15 @@ export async function POST(request: NextRequest) {
     const sanitize = (str: string, maxLength = 150) =>
       str?.replace(/[<>]/g, '').trim().slice(0, maxLength) || 'Not specified';
 
-    const prompt = `
-Technical matchmaker. Return EXACTLY ONE short sentence (under 80 characters) explaining the match.
+    const prompt = `You are a technical matchmaker evaluating a candidate for a project.
+Please write EXACTLY ONE complete, conversational sentence explaining why the user is a great match for the project based on the data below.
 
-USER: Skills=${sanitize(userProfile.skills?.join(', ') || '')}, Background=${sanitize(userProfile.department || '')}
-PROJECT: TechStack=${sanitize(projectData.Techstack?.join(', ') || '')}, Roles=${sanitize(projectData.roleGaps?.join(', ') || '')}
+User Skills: ${sanitize(userProfile.skills?.join(', ') || '')}
+User Background: ${sanitize(userProfile.department || '')}
+Project Tech Stack: ${sanitize(projectData.Techstack?.join(', ') || '')}
+Roles Needed: ${sanitize(projectData.roleGaps?.join(', ') || '')}
 
-Write 1 sentence only. Max 80 characters. No period at end.
-
-Response:
-`;
+Explanation:`;
 
     // 9. Call Gemini API with timeout protection
     if (!process.env.GEMINI_API_KEY) {
@@ -139,14 +140,13 @@ Response:
       const model = genAI.getGenerativeModel({
         model: 'gemini-2.5-flash',
         generationConfig: {
-          maxOutputTokens: 20,  // Very limited - forces 1 short sentence
-          temperature: 0.1,
-          topP: 0.5,
+          temperature: 0.7,
+          topP: 0.8,
         },
       });
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       try {
         const result = await model.generateContent(prompt, {
@@ -164,12 +164,9 @@ Response:
           .replace(/\s+/g, ' ')
           .trim();
 
-        // Hard truncate at first period or 100 chars (whichever comes first)
-        const firstPeriod = alignmentText.indexOf('.');
-        if (firstPeriod > 0 && firstPeriod < 100) {
-          alignmentText = alignmentText.slice(0, firstPeriod).trim();
-        } else if (alignmentText.length > 100) {
-          alignmentText = alignmentText.slice(0, 100).trim();
+        // Allow up to 250 characters, add ellipsis if it goes beyond
+        if (alignmentText.length > 250) {
+          alignmentText = alignmentText.slice(0, 247).trim() + '...';
         }
 
         // Fallback if response is empty or too short
