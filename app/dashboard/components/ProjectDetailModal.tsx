@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FiUsers, FiCalendar, FiZap, FiClock, FiTarget, FiLayers, FiLoader } from 'react-icons/fi';
 import { getAuth } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
+import { safeJsonResponse } from '@/lib/utils';
 import { db } from '@/lib/firebase-client';
 import ScheduleMeetupModal from './ScheduleMeetupModal';
 
@@ -90,20 +91,16 @@ export default function ProjectDetailModal({
         body: JSON.stringify({ projectId: project.id })
       });
 
-      // Check if response is JSON before parsing
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error('Non-JSON response:', text);
+      const data = await safeJsonResponse<{ alignment?: string; error?: string }>(response);
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to fetch alignment');
+      }
+
+      if (!data?.alignment) {
         throw new Error('Server returned an unexpected response format');
       }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch alignment');
-      }
-
-      const data = await response.json();
       setAlignment(data.alignment);
     } catch (error: any) {
       console.error('Failed to fetch alignment:', error);

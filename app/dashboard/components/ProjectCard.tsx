@@ -7,6 +7,7 @@ import {
   FiLoader, FiAlertCircle, FiRefreshCw
 } from 'react-icons/fi';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import { safeJsonResponse } from '@/lib/utils';
 
 interface ProjectOwner {
   name: string;
@@ -87,7 +88,7 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
         });
 
         if (!response.ok) return;
-        const data = await response.json();
+        const data = await safeJsonResponse<{ alignment?: string }>(response);
         if (typeof data?.alignment === 'string' && data.alignment.trim()) {
           setAlignment({
             text: data.alignment,
@@ -167,11 +168,15 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to analyze alignment');
+        const data = await safeJsonResponse<{ error?: string }>(response);
+        throw new Error(data?.error || 'Failed to analyze alignment');
       }
 
-      const { alignment: analysisText } = await response.json();
+      const data = await safeJsonResponse<{ alignment?: string }>(response);
+      const analysisText = data?.alignment;
+      if (!analysisText) {
+        throw new Error('Failed to analyze alignment');
+      }
       
       setAlignment({
         text: analysisText,
