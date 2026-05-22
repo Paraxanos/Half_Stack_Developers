@@ -12,4 +12,4 @@ jobs:
     steps:
       - name: Ping Render server
         run: |
-          curl -s https://half-stack-developers.onrender.com/health > /dev/null
+          curl -s https://ghost-collab-backend.onrender.com/health > /dev/null
