@@ -9,12 +9,13 @@ let serviceAccount;
 
 try {
   // Method 1: Environment variables (Recommended for Vercel/production)
-  if (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY && process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+  if (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY && projectId) {
     console.log('🔥 Initializing Firebase Admin SDK with environment variables...');
     
     serviceAccount = {
       type: 'service_account',
-      project_id: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      project_id: projectId,
       client_email: process.env.FIREBASE_CLIENT_EMAIL,
       private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
     };
@@ -28,7 +29,7 @@ try {
     }
 
     console.log('✅ Firebase Admin SDK initialized (env variables)');
-    console.log(`   Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}`);
+    console.log(`   Project: ${projectId}`);
     console.log(`   Account: ${process.env.FIREBASE_CLIENT_EMAIL}`);
   }
   // Method 2: JSON string (Alternative for Vercel)
